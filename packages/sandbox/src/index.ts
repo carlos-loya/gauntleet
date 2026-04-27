@@ -1,5 +1,2 @@
-// @gauntleet/sandbox
-// Docker-based Python execution sandbox with strict isolation. Populated in
-// feat/sandbox.
-
-export {};
+export { runPython } from "./runner.js";
+export { SandboxError, type RunPythonOptions, type RunPythonResult } from "./types.js";
