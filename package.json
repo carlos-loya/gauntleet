@@ -14,7 +14,8 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
     "sandbox:build": "docker build -t gauntleet-python-runner:latest docker/python-runner",
-    "sandbox:smoke": "pnpm --filter @gauntleet/sandbox smoke"
+    "sandbox:smoke": "pnpm --filter @gauntleet/sandbox smoke",
+    "gen": "pnpm --filter @gauntleet/core generate"
   },
   "devDependencies": {
     "prettier": "^3.4.2",

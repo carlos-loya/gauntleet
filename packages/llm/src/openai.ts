@@ -19,8 +19,16 @@ export class OpenAICompatibleProvider implements LLMProvider {
   }
 
   async complete(opts: CompleteOptions): Promise<CompleteResult> {
+    const systemParts: string[] = [];
+    if (opts.system) systemParts.push(opts.system);
+    if (opts.jsonMode) {
+      systemParts.push("Reply with a single valid JSON object and no other text.");
+    }
+
     const messages: OpenAI.ChatCompletionMessageParam[] = [];
-    if (opts.system) messages.push({ role: "system", content: opts.system });
+    if (systemParts.length > 0) {
+      messages.push({ role: "system", content: systemParts.join("\n\n") });
+    }
     for (const m of opts.messages) {
       messages.push({ role: m.role, content: m.content });
     }
@@ -30,7 +38,6 @@ export class OpenAICompatibleProvider implements LLMProvider {
       messages,
       ...(opts.maxTokens !== undefined && { max_tokens: opts.maxTokens }),
       ...(opts.temperature !== undefined && { temperature: opts.temperature }),
-      ...(opts.jsonMode && { response_format: { type: "json_object" } }),
     });
 
     const choice = response.choices[0];
