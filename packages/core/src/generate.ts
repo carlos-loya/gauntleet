@@ -104,7 +104,7 @@ export async function generateProblem(opts: GenerateProblemOptions): Promise<Pro
   return inserted;
 }
 
-function extractJSON(text: string): unknown {
+export function extractJSON(text: string): unknown {
   const trimmed = text.trim();
   try {
     return JSON.parse(trimmed);
@@ -118,7 +118,7 @@ function extractJSON(text: string): unknown {
   return JSON.parse(match[0]);
 }
 
-function deepEqual(a: unknown, b: unknown): boolean {
+export function deepEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   if (typeof a !== typeof b) return false;
   if (a === null || b === null) return a === b;
