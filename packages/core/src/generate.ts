@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { problems, type Db, type Problem, type SampleTest } from "@gauntleet/db";
 import type { LLMProvider } from "@gauntleet/llm";
+import { getRecentTitles, isDuplicateTitle } from "./dedup.js";
 import { buildMessages, PROMPT_VERSION } from "./prompt.js";
 import { runInputGenerator, runReferenceSolution } from "./python-harness.js";
 import { Difficulty, GeneratedProblem } from "./schema.js";
+import type { Topic } from "./topics.js";
 
 export class GenerationError extends Error {
   constructor(message: string) {
@@ -14,23 +16,59 @@ export class GenerationError extends Error {
 
 export interface GenerateProblemInput {
   difficulty: Difficulty;
-  topic: string;
+  topic: Topic;
 }
 
 export interface GenerateProblemOptions {
   generator: LLMProvider;
   db: Db;
   input: GenerateProblemInput;
+  /** How many recent titles for the same (difficulty, topic) pair to expose to the model. */
+  avoidLimit?: number;
+  /** How many times to retry on a normalized-title collision before giving up. */
+  maxAttempts?: number;
 }
 
+const DEFAULT_AVOID_LIMIT = 30;
+const DEFAULT_MAX_ATTEMPTS = 3;
+
 export async function generateProblem(opts: GenerateProblemOptions): Promise<Problem> {
-  const { system, user } = buildMessages(opts.input);
-  const response = await opts.generator.complete({
+  const avoidLimit = opts.avoidLimit ?? DEFAULT_AVOID_LIMIT;
+  const maxAttempts = opts.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
+  const existingTitles = getRecentTitles(opts.db, opts.input, avoidLimit);
+
+  let lastDuplicateTitle: string | null = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const candidate = await generateOnce(opts.generator, opts.input, existingTitles);
+    if (isDuplicateTitle(existingTitles, candidate.title)) {
+      lastDuplicateTitle = candidate.title;
+      // Add the duplicate to the avoid-list so the model doesn't repeat itself
+      // on the next attempt.
+      existingTitles.push(candidate.title);
+      continue;
+    }
+    await sanityCheck(candidate);
+    return persistProblem(opts, candidate);
+  }
+
+  throw new GenerationError(
+    `generator produced ${maxAttempts} duplicate titles in a row (last: "${lastDuplicateTitle}"). ` +
+      `Try a different topic or difficulty, or run \`pnpm gen --skip-validation\` to inspect.`
+  );
+}
+
+async function generateOnce(
+  generator: LLMProvider,
+  input: GenerateProblemInput,
+  avoidTitles: string[]
+): Promise<GeneratedProblem> {
+  const { system, user } = buildMessages({ ...input, avoidTitles });
+  const response = await generator.complete({
     messages: [{ role: "user", content: user }],
     system,
     jsonMode: true,
     maxTokens: 4096,
-    temperature: 0.7,
+    temperature: 0.8,
   });
 
   const raw = extractJSON(response.text);
@@ -41,8 +79,10 @@ export async function generateProblem(opts: GenerateProblemOptions): Promise<Pro
         `--- raw response (first 1000 chars) ---\n${response.text.slice(0, 1000)}`
     );
   }
-  const problem = parsed.data;
+  return parsed.data;
+}
 
+async function sanityCheck(problem: GeneratedProblem): Promise<void> {
   const seeds = [0, 1, 2];
   let generatedInputs: unknown[][];
   try {
@@ -78,7 +118,9 @@ export async function generateProblem(opts: GenerateProblemOptions): Promise<Pro
       );
     }
   }
+}
 
+function persistProblem(opts: GenerateProblemOptions, problem: GeneratedProblem): Problem {
   const row = {
     id: randomUUID(),
     createdAt: new Date(),
@@ -98,7 +140,6 @@ export async function generateProblem(opts: GenerateProblemOptions): Promise<Pro
     status: "draft" as const,
     validationNotes: null,
   };
-
   const inserted = opts.db.insert(problems).values(row).returning().get();
   if (!inserted) throw new GenerationError("insert did not return a row");
   return inserted;

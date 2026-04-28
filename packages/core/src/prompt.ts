@@ -1,6 +1,7 @@
 import type { Difficulty } from "./schema.js";
+import { topicLabel, type Topic } from "./topics.js";
 
-export const PROMPT_VERSION = "v1";
+export const PROMPT_VERSION = "v2";
 
 const SYSTEM_PROMPT = `You generate algorithmic practice problems for a LeetCode-style site.
 
@@ -31,12 +32,25 @@ Additional guidance:
 - Do not import non-stdlib packages.
 - Keep the problem statement self-contained — readers should not need outside context.`;
 
-export function buildMessages(input: { difficulty: Difficulty; topic: string }): {
-  system: string;
-  user: string;
-} {
-  return {
-    system: SYSTEM_PROMPT,
-    user: `Generate one ${input.difficulty} problem on the topic "${input.topic}".`,
-  };
+export interface BuildMessagesInput {
+  difficulty: Difficulty;
+  topic: Topic;
+  /** Existing problem titles for the same (difficulty, topic) pair to avoid duplicating. */
+  avoidTitles?: string[];
+}
+
+export function buildMessages(input: BuildMessagesInput): { system: string; user: string } {
+  const lines: string[] = [
+    `Generate one ${input.difficulty} problem on the topic "${topicLabel(input.topic)}".`,
+  ];
+  if (input.avoidTitles && input.avoidTitles.length > 0) {
+    lines.push("");
+    lines.push(
+      "Do NOT generate any of the following problems or close variants of them. Pick a meaningfully different problem with a different core idea, not just a renamed version:"
+    );
+    for (const title of input.avoidTitles) {
+      lines.push(`- ${title}`);
+    }
+  }
+  return { system: SYSTEM_PROMPT, user: lines.join("\n") };
 }

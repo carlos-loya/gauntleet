@@ -2,6 +2,8 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
+import { Loader2, Sparkles } from "lucide-react";
+import { TOPICS, topicLabel } from "@gauntleet/core/topics";
 import { generateNewProblem, type GenerateState } from "../app/actions";
 
 const INITIAL_STATE: GenerateState = { status: "idle", message: "" };
@@ -12,56 +14,63 @@ export function GenerateForm() {
   return (
     <form
       action={formAction}
-      className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
+      className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/60"
     >
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="flex flex-col">
-          <label
-            htmlFor="difficulty"
-            className="mb-1 text-xs font-medium text-slate-600 dark:text-slate-400"
-          >
-            Difficulty
-          </label>
-          <select
-            id="difficulty"
-            name="difficulty"
-            defaultValue="medium"
-            className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-          >
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-[10rem_1fr_auto] md:items-end">
+        <Field label="Difficulty" htmlFor="difficulty">
+          <select id="difficulty" name="difficulty" defaultValue="medium" className={selectStyles}>
             <option value="easy">Easy</option>
             <option value="medium">Medium</option>
             <option value="hard">Hard</option>
           </select>
-        </div>
-        <div className="flex flex-1 flex-col">
-          <label
-            htmlFor="topic"
-            className="mb-1 text-xs font-medium text-slate-600 dark:text-slate-400"
-          >
-            Topic
-          </label>
-          <input
-            id="topic"
-            name="topic"
-            type="text"
-            defaultValue="arrays"
-            placeholder="e.g. arrays, two-pointer, dynamic programming"
-            className="min-w-[20rem] rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-            required
-          />
-        </div>
+        </Field>
+        <Field label="Topic" htmlFor="topic">
+          <select id="topic" name="topic" defaultValue="arrays" className={selectStyles}>
+            {TOPICS.map((t) => (
+              <option key={t} value={t}>
+                {topicLabel(t)}
+              </option>
+            ))}
+          </select>
+        </Field>
         <SubmitButton />
       </div>
       {state.status === "error" && (
-        <p className="mt-3 rounded bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:bg-rose-900/30 dark:text-rose-300">
+        <p className="mt-4 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-800 ring-1 ring-inset ring-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:ring-rose-400/20">
           {state.message}
         </p>
       )}
-      <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-        Generation runs the configured generator + validator LLMs and the sandbox. Expect ~1 minute
-        on a local model.
+      <p className="mt-4 text-xs text-slate-500 dark:text-slate-400">
+        Runs the configured generator + validator LLMs and the sandbox. Expect ~1 minute on a local
+        model. The validator independently solves the problem and the result is rejected if the two
+        solutions disagree.
       </p>
     </form>
+  );
+}
+
+const selectStyles =
+  "block w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm shadow-sm transition-colors hover:border-slate-400 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-400/20 dark:border-slate-700 dark:bg-slate-950/40 dark:hover:border-slate-600 dark:focus:border-slate-500";
+
+function Field({
+  label,
+  htmlFor,
+  children,
+}: {
+  label: string;
+  htmlFor: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label
+        htmlFor={htmlFor}
+        className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400"
+      >
+        {label}
+      </label>
+      {children}
+    </div>
   );
 }
 
@@ -71,9 +80,19 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="rounded-md bg-slate-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
+      className="inline-flex items-center justify-center gap-2 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-400/40 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
     >
-      {pending ? "Generating…" : "Generate problem"}
+      {pending ? (
+        <>
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Generating…
+        </>
+      ) : (
+        <>
+          <Sparkles className="h-4 w-4" />
+          Generate problem
+        </>
+      )}
     </button>
   );
 }

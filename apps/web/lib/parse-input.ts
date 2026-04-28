@@ -1,14 +1,15 @@
+import { isTopic, type Topic } from "@gauntleet/core";
+
 export type Difficulty = "easy" | "medium" | "hard";
 
 export interface GenerateInput {
   difficulty: Difficulty;
-  topic: string;
+  topic: Topic;
 }
 
 export type ParseResult = { ok: true; value: GenerateInput } | { ok: false; error: string };
 
 const DIFFICULTIES: readonly Difficulty[] = ["easy", "medium", "hard"];
-const MAX_TOPIC_LENGTH = 80;
 
 export function parseGenerateInput(raw: { difficulty?: unknown; topic?: unknown }): ParseResult {
   const difficulty = String(raw.difficulty ?? "").toLowerCase();
@@ -17,8 +18,8 @@ export function parseGenerateInput(raw: { difficulty?: unknown; topic?: unknown 
   }
   const topic = String(raw.topic ?? "").trim();
   if (!topic) return { ok: false, error: "topic is required" };
-  if (topic.length > MAX_TOPIC_LENGTH) {
-    return { ok: false, error: `topic must be ${MAX_TOPIC_LENGTH} characters or fewer` };
+  if (!isTopic(topic)) {
+    return { ok: false, error: `topic "${topic}" is not in the supported set` };
   }
   return { ok: true, value: { difficulty: difficulty as Difficulty, topic } };
 }
