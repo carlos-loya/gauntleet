@@ -10,13 +10,22 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@gauntleet/core": "workspace:*",
+    "@gauntleet/db": "workspace:*",
+    "@gauntleet/llm": "workspace:*",
+    "@monaco-editor/react": "^4.6.0",
+    "dotenv": "^16.4.7",
+    "drizzle-orm": "^0.38.4",
     "next": "^15.1.6",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-markdown": "^9.0.3",
+    "remark-gfm": "^4.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
     "@tailwindcss/postcss": "^4.0.0",
+    "@tailwindcss/typography": "^0.5.16",
     "@types/node": "^22.10.5",
     "@types/react": "^19.0.7",
     "@types/react-dom": "^19.0.3",
