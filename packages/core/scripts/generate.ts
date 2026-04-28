@@ -8,6 +8,8 @@ import {
   Difficulty,
   generateProblem,
   GenerationError,
+  isTopic,
+  TOPICS,
   validateProblem,
   ValidationError,
 } from "../src/index.js";
@@ -44,6 +46,10 @@ async function main(): Promise<void> {
   const topic = (values.topic ?? "").trim();
   if (!topic) {
     console.error("--topic is required");
+    process.exit(2);
+  }
+  if (!isTopic(topic)) {
+    console.error(`--topic must be one of: ${TOPICS.join(", ")}\n(got "${topic}")`);
     process.exit(2);
   }
   const seedCount = Number.parseInt(values.seeds ?? "20", 10);
@@ -86,7 +92,7 @@ async function main(): Promise<void> {
     problem = await generateProblem({
       generator,
       db,
-      input: { difficulty: difficulty.data, topic },
+      input: { difficulty: difficulty.data, topic: topic },
     });
   } catch (err) {
     const ms = Date.now() - generatedAt;
