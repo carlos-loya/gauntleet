@@ -37,6 +37,11 @@ export const problems = sqliteTable("problems", {
     .notNull()
     .default("draft"),
   validationNotes: text("validation_notes"),
+  validatorProvider: text("validator_provider"),
+  validatorModel: text("validator_model"),
+  validatorSolution: text("validator_solution"),
+  validatedAt: integer("validated_at", { mode: "timestamp_ms" }),
+  validationSeedCount: integer("validation_seed_count"),
 });
 
 export type Problem = typeof problems.$inferSelect;

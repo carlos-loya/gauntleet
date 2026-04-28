@@ -8,6 +8,13 @@
       "when": 1777329399177,
       "tag": "0000_workable_pride",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1777331300971,
+      "tag": "0001_loud_sersi",
+      "breakpoints": true
     }
   ]
 }
