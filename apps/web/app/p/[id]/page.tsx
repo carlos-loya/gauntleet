@@ -3,13 +3,14 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Cpu } from "lucide-react";
 import { topicLabel, type Topic } from "@gauntleet/core/topics";
 import { DifficultyBadge } from "../../../components/DifficultyBadge";
-import { Header } from "../../../components/Header";
 import { ProblemEditor } from "../../../components/ProblemEditor";
 import { ProblemMarkdown } from "../../../components/ProblemMarkdown";
 import { SampleTests } from "../../../components/SampleTests";
+import { StatusIcon } from "../../../components/StatusIcon";
 import { SubmissionHistory } from "../../../components/SubmissionHistory";
-import { getProblem, listSubmissions } from "../../../lib/db";
+import { getProblem, getProblemStats, listSubmissions } from "../../../lib/db";
 import { formatStarterCode } from "../../../lib/problem-format";
+import { deriveStatus } from "../../../lib/problem-status";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,8 @@ export default async function ProblemPage({ params }: { params: Promise<{ id: st
   if (!problem) notFound();
 
   const submissions = listSubmissions(problem.id);
+  const stats = getProblemStats(problem.id);
+  const status = deriveStatus(stats);
   const starterCode = formatStarterCode({
     functionName: problem.functionName,
     parameters: problem.parameters,
@@ -26,8 +29,7 @@ export default async function ProblemPage({ params }: { params: Promise<{ id: st
   });
 
   return (
-    <div className="flex h-screen flex-col">
-      <Header />
+    <>
       <div className="flex flex-shrink-0 items-center justify-between border-b border-slate-200 bg-white px-6 py-3 dark:border-slate-800 dark:bg-slate-950">
         <div className="flex min-w-0 items-center gap-3">
           <Link
@@ -38,6 +40,7 @@ export default async function ProblemPage({ params }: { params: Promise<{ id: st
             Problems
           </Link>
           <span className="text-slate-300 dark:text-slate-700">/</span>
+          <StatusIcon status={status} />
           <h1 className="truncate text-base font-semibold text-slate-900 dark:text-slate-50">
             {problem.title}
           </h1>
@@ -67,6 +70,6 @@ export default async function ProblemPage({ params }: { params: Promise<{ id: st
           <ProblemEditor problemId={problem.id} starterCode={starterCode} />
         </section>
       </main>
-    </div>
+    </>
   );
 }
