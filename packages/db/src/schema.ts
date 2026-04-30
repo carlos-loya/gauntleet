@@ -46,3 +46,40 @@ export const problems = sqliteTable("problems", {
 
 export type Problem = typeof problems.$inferSelect;
 export type NewProblem = typeof problems.$inferInsert;
+
+export type Verdict =
+  | "accepted"
+  | "wrong_answer"
+  | "runtime_error"
+  | "time_limit_exceeded"
+  | "memory_limit_exceeded";
+
+export const submissions = sqliteTable("submissions", {
+  id: text("id").primaryKey(),
+  problemId: text("problem_id")
+    .notNull()
+    .references(() => problems.id, { onDelete: "cascade" }),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+
+  code: text("code").notNull(),
+  verdict: text("verdict", {
+    enum: [
+      "accepted",
+      "wrong_answer",
+      "runtime_error",
+      "time_limit_exceeded",
+      "memory_limit_exceeded",
+    ],
+  }).notNull(),
+  /** Index of the failing test case (0-based), or null if all passed. */
+  failedAtIndex: integer("failed_at_index"),
+  /** Short human-readable note explaining the verdict (stderr snippet, etc.). */
+  failureNote: text("failure_note"),
+  /** Wall-clock duration of the user solution sandbox run, in ms. */
+  runtimeMs: integer("runtime_ms"),
+  testsPassed: integer("tests_passed").notNull(),
+  testsTotal: integer("tests_total").notNull(),
+});
+
+export type Submission = typeof submissions.$inferSelect;
+export type NewSubmission = typeof submissions.$inferInsert;

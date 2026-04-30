@@ -7,7 +7,8 @@ import { Header } from "../../../components/Header";
 import { ProblemEditor } from "../../../components/ProblemEditor";
 import { ProblemMarkdown } from "../../../components/ProblemMarkdown";
 import { SampleTests } from "../../../components/SampleTests";
-import { getProblem } from "../../../lib/db";
+import { SubmissionHistory } from "../../../components/SubmissionHistory";
+import { getProblem, listSubmissions } from "../../../lib/db";
 import { formatStarterCode } from "../../../lib/problem-format";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +18,7 @@ export default async function ProblemPage({ params }: { params: Promise<{ id: st
   const problem = getProblem(id);
   if (!problem) notFound();
 
+  const submissions = listSubmissions(problem.id);
   const starterCode = formatStarterCode({
     functionName: problem.functionName,
     parameters: problem.parameters,
@@ -59,9 +61,7 @@ export default async function ProblemPage({ params }: { params: Promise<{ id: st
           <h3 className="mt-8 mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             Submissions
           </h3>
-          <p className="rounded-md border border-dashed border-slate-300 px-3 py-2 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
-            Submission history will appear here once judging is wired up (PR&nbsp;#7).
-          </p>
+          <SubmissionHistory submissions={submissions} />
         </section>
         <section className="min-h-0">
           <ProblemEditor problemId={problem.id} starterCode={starterCode} />
