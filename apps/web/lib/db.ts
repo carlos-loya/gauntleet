@@ -1,7 +1,15 @@
 import "server-only";
 import path from "node:path";
 import { and, desc, eq } from "drizzle-orm";
-import { createDb, migrate, problems, type Db, type Problem } from "@gauntleet/db";
+import {
+  createDb,
+  migrate,
+  problems,
+  submissions,
+  type Db,
+  type Problem,
+  type Submission,
+} from "@gauntleet/db";
 import { ensureEnv, getRepoRoot } from "./env";
 
 let dbSingleton: Db | null = null;
@@ -44,6 +52,17 @@ export function getProblem(id: string): Problem | null {
   const db = getDb();
   const row = db.select().from(problems).where(eq(problems.id, id)).get();
   return row ?? null;
+}
+
+export function listSubmissions(problemId: string, limit = 50): Submission[] {
+  const db = getDb();
+  return db
+    .select()
+    .from(submissions)
+    .where(eq(submissions.problemId, problemId))
+    .orderBy(desc(submissions.createdAt))
+    .limit(limit)
+    .all();
 }
 
 export function listAllTopics(): string[] {

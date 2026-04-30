@@ -15,6 +15,13 @@
       "when": 1777331300971,
       "tag": "0001_loud_sersi",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1777402670132,
+      "tag": "0002_right_lockheed",
+      "breakpoints": true
     }
   ]
 }
