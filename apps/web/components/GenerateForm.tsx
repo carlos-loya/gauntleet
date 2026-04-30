@@ -3,12 +3,20 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { Loader2, Sparkles } from "lucide-react";
-import { TOPICS, topicLabel } from "@gauntleet/core/topics";
+import { TOPICS, topicLabel, type Topic } from "@gauntleet/core/topics";
 import { generateNewProblem, type GenerateState } from "../app/actions";
 
 const INITIAL_STATE: GenerateState = { status: "idle", message: "" };
 
-export function GenerateForm() {
+interface GenerateFormProps {
+  defaultDifficulty?: "easy" | "medium" | "hard";
+  defaultTopic?: Topic;
+}
+
+export function GenerateForm({
+  defaultDifficulty = "medium",
+  defaultTopic = "arrays",
+}: GenerateFormProps = {}) {
   const [state, formAction] = useActionState(generateNewProblem, INITIAL_STATE);
 
   return (
@@ -18,14 +26,19 @@ export function GenerateForm() {
     >
       <div className="grid grid-cols-1 gap-4 md:grid-cols-[10rem_1fr_auto] md:items-end">
         <Field label="Difficulty" htmlFor="difficulty">
-          <select id="difficulty" name="difficulty" defaultValue="medium" className={selectStyles}>
+          <select
+            id="difficulty"
+            name="difficulty"
+            defaultValue={defaultDifficulty}
+            className={selectStyles}
+          >
             <option value="easy">Easy</option>
             <option value="medium">Medium</option>
             <option value="hard">Hard</option>
           </select>
         </Field>
         <Field label="Topic" htmlFor="topic">
-          <select id="topic" name="topic" defaultValue="arrays" className={selectStyles}>
+          <select id="topic" name="topic" defaultValue={defaultTopic} className={selectStyles}>
             {TOPICS.map((t) => (
               <option key={t} value={t}>
                 {topicLabel(t)}

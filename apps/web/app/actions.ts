@@ -12,14 +12,27 @@ import {
   ValidationError,
   type GradeResult,
 } from "@gauntleet/core";
-import { checkIndependence, createProviderFromEnv } from "@gauntleet/llm";
+import { checkIndependence, createProvider, type LLMProvider, type Role } from "@gauntleet/llm";
 import { ensureEnv } from "../lib/env";
 import { getDb, getProblem } from "../lib/db";
 import { parseGenerateInput } from "../lib/parse-input";
+import { getSettings, resolveProviderConfig, updateSettings } from "../lib/settings";
+import type { ProviderOverrides, UserSettings } from "../lib/settings-core";
+import { isTopic, TOPICS } from "@gauntleet/core/topics";
 
 export interface GenerateState {
   status: "idle" | "error";
   message: string;
+}
+
+function buildProvider(role: Role, settings: UserSettings): LLMProvider | { error: string } {
+  const config = resolveProviderConfig(role, settings, process.env);
+  if ("error" in config) return config;
+  try {
+    return createProvider(config);
+  } catch (err) {
+    return { error: (err as Error).message };
+  }
 }
 
 export async function generateNewProblem(
@@ -36,14 +49,15 @@ export async function generateNewProblem(
   }
 
   const db = getDb();
+  const settings = getSettings(db);
 
-  let generator;
-  let validator;
-  try {
-    generator = createProviderFromEnv("GENERATOR");
-    validator = createProviderFromEnv("VALIDATOR");
-  } catch (err) {
-    return { status: "error", message: `Provider config error: ${(err as Error).message}` };
+  const generator = buildProvider("GENERATOR", settings);
+  if ("error" in generator) {
+    return { status: "error", message: `Generator config error: ${generator.error}` };
+  }
+  const validator = buildProvider("VALIDATOR", settings);
+  if ("error" in validator) {
+    return { status: "error", message: `Validator config error: ${validator.error}` };
   }
 
   const independence = checkIndependence(generator, validator);
@@ -63,7 +77,13 @@ export async function generateNewProblem(
   }
 
   try {
-    await validateProblem({ validator, db, problemId, seedCount: 20 });
+    await validateProblem({
+      validator,
+      db,
+      problemId,
+      seedCount: 20,
+      solutionTimeoutMs: settings.sandboxTimeoutMs,
+    });
   } catch (err) {
     if (err instanceof ValidationError) {
       return { status: "error", message: `Validation crashed: ${err.message}` };
@@ -95,8 +115,14 @@ export async function runUserCodeAction(problemId: string, code: string): Promis
   const problem = getProblem(problemId);
   if (!problem) return { ok: false, error: "problem not found" };
 
+  const settings = getSettings();
   try {
-    const grade = await runAgainstSamples({ problem, code: codeCheck.code });
+    const grade = await runAgainstSamples({
+      problem,
+      code: codeCheck.code,
+      timeoutMs: settings.sandboxTimeoutMs,
+      memoryMb: settings.sandboxMemoryMb,
+    });
     return { ok: true, grade };
   } catch (err) {
     return { ok: false, error: `run failed: ${(err as Error).message}` };
@@ -115,8 +141,15 @@ export async function submitUserCodeAction(
   if (!problem) return { ok: false, error: "problem not found" };
 
   const db = getDb();
+  const settings = getSettings(db);
   try {
-    const { grade } = await gradeSubmission({ db, problemId, code: codeCheck.code });
+    const { grade } = await gradeSubmission({
+      db,
+      problemId,
+      code: codeCheck.code,
+      timeoutMs: settings.sandboxTimeoutMs,
+      memoryMb: settings.sandboxMemoryMb,
+    });
     revalidatePath(`/p/${problemId}`);
     return { ok: true, grade };
   } catch (err) {
@@ -125,4 +158,98 @@ export async function submitUserCodeAction(
     }
     throw err;
   }
+}
+
+export interface SaveSettingsResult {
+  ok: boolean;
+  message: string;
+}
+
+export async function saveSettingsAction(
+  _prevState: SaveSettingsResult,
+  formData: FormData
+): Promise<SaveSettingsResult> {
+  ensureEnv();
+  const parsed = parseSettingsForm(formData);
+  if (!parsed.ok) return { ok: false, message: parsed.error };
+  try {
+    updateSettings(getDb(), parsed.value);
+  } catch (err) {
+    return { ok: false, message: (err as Error).message };
+  }
+  revalidatePath("/settings");
+  revalidatePath("/");
+  return { ok: true, message: "Settings saved." };
+}
+
+interface ParsedSettingsForm {
+  defaultDifficulty: UserSettings["defaultDifficulty"];
+  defaultTopic: UserSettings["defaultTopic"];
+  generator: ProviderOverrides;
+  validator: ProviderOverrides;
+  sandboxTimeoutMs: number;
+  sandboxMemoryMb: number;
+}
+
+function parseSettingsForm(
+  fd: FormData
+): { ok: true; value: ParsedSettingsForm } | { ok: false; error: string } {
+  const difficultyRaw = String(fd.get("default_difficulty") ?? "");
+  const difficulty: UserSettings["defaultDifficulty"] =
+    difficultyRaw === "easy" || difficultyRaw === "medium" || difficultyRaw === "hard"
+      ? difficultyRaw
+      : null;
+
+  const topicRaw = String(fd.get("default_topic") ?? "");
+  const topic: UserSettings["defaultTopic"] =
+    topicRaw === "" ? null : isTopic(topicRaw) ? topicRaw : null;
+  if (topicRaw !== "" && !isTopic(topicRaw)) {
+    return { ok: false, error: `default topic "${topicRaw}" is not in the supported set` };
+  }
+
+  const generator = parseProviderForm(fd, "generator");
+  const validator = parseProviderForm(fd, "validator");
+
+  const timeoutRaw = String(fd.get("sandbox_timeout_ms") ?? "");
+  const timeout = parseInt(timeoutRaw, 10);
+  if (!Number.isFinite(timeout) || timeout < 100 || timeout > 60_000) {
+    return { ok: false, error: "sandbox timeout must be between 100 and 60000 ms" };
+  }
+
+  const memoryRaw = String(fd.get("sandbox_memory_mb") ?? "");
+  const memory = parseInt(memoryRaw, 10);
+  if (!Number.isFinite(memory) || memory < 32 || memory > 4096) {
+    return { ok: false, error: "sandbox memory must be between 32 and 4096 MB" };
+  }
+
+  // Touch TOPICS so it's referenced (we re-validate at the page boundary too).
+  void TOPICS;
+
+  return {
+    ok: true,
+    value: {
+      defaultDifficulty: difficulty,
+      defaultTopic: topic,
+      generator,
+      validator,
+      sandboxTimeoutMs: timeout,
+      sandboxMemoryMb: memory,
+    },
+  };
+}
+
+const PRESET_VALUES = ["anthropic", "openai", "lmstudio", "ollama", "custom"] as const;
+
+function parseProviderForm(fd: FormData, role: "generator" | "validator"): ProviderOverrides {
+  const presetRaw = String(fd.get(`${role}_preset`) ?? "").toLowerCase();
+  const preset = (PRESET_VALUES as readonly string[]).includes(presetRaw)
+    ? (presetRaw as (typeof PRESET_VALUES)[number])
+    : null;
+  const model = String(fd.get(`${role}_model`) ?? "").trim();
+  const baseUrl = String(fd.get(`${role}_base_url`) ?? "").trim();
+  return {
+    preset,
+    model: model.length > 0 ? model : null,
+    baseUrl: baseUrl.length > 0 ? baseUrl : null,
+  };
 }
