@@ -83,3 +83,18 @@ export const submissions = sqliteTable("submissions", {
 
 export type Submission = typeof submissions.$inferSelect;
 export type NewSubmission = typeof submissions.$inferInsert;
+
+/**
+ * Single-row-per-key settings store. Values are JSON-encoded so the UI can
+ * persist heterogeneous data (numbers, strings, nullable provider configs)
+ * without a migration each time we add a knob. Validation lives in the app
+ * layer, not in the DB.
+ */
+export const settings = sqliteTable("settings", {
+  key: text("key").primaryKey(),
+  value: text("value", { mode: "json" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+});
+
+export type SettingsRow = typeof settings.$inferSelect;
+export type NewSettingsRow = typeof settings.$inferInsert;

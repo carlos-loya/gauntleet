@@ -7,6 +7,7 @@ import { ProblemFilters } from "../components/ProblemFilters";
 import { StatusIcon } from "../components/StatusIcon";
 import { listAllTopics, listProblemsWithStats, type ProblemWithStats } from "../lib/db";
 import { acceptanceRate, deriveStatus, type ProblemUserStatus } from "../lib/problem-status";
+import { getSettings } from "../lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Hom
     return deriveStatus(p) === statusFilter;
   });
 
+  const userSettings = getSettings();
   const topicsInUse = listAllTopics().filter((t): t is Topic => isTopic(t));
   // Show every supported topic in the filter, ordered with in-use ones first.
   const topicSet = new Set(topicsInUse);
@@ -55,7 +57,15 @@ export default async function Home({ searchParams }: { searchParams: Promise<Hom
 
         <section className="mb-12">
           <SectionHeader>Generate a new problem</SectionHeader>
-          <GenerateForm />
+          <GenerateForm
+            {...(userSettings.defaultDifficulty && {
+              defaultDifficulty: userSettings.defaultDifficulty,
+            })}
+            {...(userSettings.defaultTopic &&
+              isTopic(userSettings.defaultTopic) && {
+                defaultTopic: userSettings.defaultTopic,
+              })}
+          />
         </section>
 
         <section>
